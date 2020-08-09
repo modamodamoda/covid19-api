@@ -320,6 +320,10 @@ app.get('/summary', (req, res) => {
     res.json(database.lookupTotal().format(0));
 });
 
+app.get('/summary/countries', (req, res) => {
+    res.json(database.lookupTotal().format(1));
+});
+
 app.get('/summary/countries/:start/:end?', (req, res) => {
     if(!validateDate(req.params.start) || (req.params.end && !validateDate(req.params.end))) {
         res.json({error: 'INVALID_DATE'});
