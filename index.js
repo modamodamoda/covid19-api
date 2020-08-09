@@ -6,7 +6,7 @@ const cheerio = require('cheerio');
 const fetch = require('node-fetch');
 
 const app = express();
-const dateRegex = /^[0-9]{4}-(0[1-9]|[12][0-9]|3[01])-(0[1-9]|1[012])$/;
+const dateRegex = /^[0-9]{4}-(0[1-9]|1[012])-(0[1-9]|[12][0-9]|3[01])$/;
 
 const localeCorrection = { // apologies to any countries that aren't named how you like
     'USA': 'US',
@@ -19,6 +19,7 @@ const localeCorrection = { // apologies to any countries that aren't named how y
     'Congo': 'Republic of Congo',
     'West Bank and Gaza': 'Palestine',
     'Taiwan*': 'Taiwan', // Why a star, WHO? ;)
+    'Mainland China': 'China'
 };
 
 // Functions
@@ -152,7 +153,7 @@ class DB {
         if(!start) return false;
         if(!end) end = this.lastDate;
         while(start <= end) {
-            const data = this.lookupLocality(country, locality);
+            const data = this.lookupLocality(country, locality, start);
             if(data !== null) dataset.push({date: fmtDate(start), rec: data});
             start.setDate(start.getDate() + 1);
         }
@@ -163,7 +164,7 @@ class DB {
         if(!start) return false;
         if(!end) end = this.lastDate;
         while(start <= end) {
-            const data = this.lookupTotal();
+            const data = this.lookupTotal(start);
             if(data !== null) dataset.push({date: fmtDate(start), rec: data});
             start.setDate(start.getDate() + 1);
         }
@@ -172,7 +173,6 @@ class DB {
     processRecord(date, record) {
         if(!this.Data[date]) this.Data[date] = new Record();
         let focus = this.Data[date];
-        if(record.Country == 'Mainland China') record.Country = 'China'; // China almighty
         focus = focus.child(record.Country);
         if(record.State) {
             // this is a 1 layered entry
@@ -195,18 +195,18 @@ var database = new DB();
 
 function processFile(date) {
     return new Promise(async (resolve, reject) => {
-        const content = await readFile('./COVID-19/csse_covid_19_data/csse_covid_19_daily_reports/' + date + '.csv');
+        const content = await readFile('./COVID-19/csse_covid_19_data/csse_covid_19_daily_reports/' + date + '.csv', 'ascii');
         // Parse the CSV content
-        parse(content, { delimiter: ',', columns: true }, (err, output) => {
+        parse(content.replace(/[^\x00-\x7F]+/g, ''), { delimiter: ',', columns: true }, (err, output) => {
             if(err) {
                 reject(err);
                 return;
             }
             for(let i in output) {
                 let record;
-                output[i].Country_Region = localeFix(output[i].Country_Region);
-                if(output[i].FIPS !== undefined) {
+                if(output[i].Country_Region !== undefined) {
                     // new format
+                    output[i].Country_Region = localeFix(output[i].Country_Region);
                     record = {
                         Country: output[i].Country_Region,
                         Confirmed: parseInt(output[i].Confirmed) || 0,
@@ -223,13 +223,17 @@ function processFile(date) {
                     if(output[i].Admin2 != '') record.Admin = output[i].Admin2;
                 } else {
                     // old format
+                    output[i]['Country/Region'] = localeFix(output[i]['Country/Region']);
                     record = {
                         Country: output[i]['Country/Region'],
-                        State: output[i]['Province/State'],
                         Confirmed: parseInt(output[i].Confirmed) || 0,
                         Deaths: parseInt(output[i].Deaths) || 0,
                         Recovered: parseInt(output[i].Recovered) || 0
                     }
+                    if(output[i]['Province/State'] != '') {
+                        record.State = output[i]['Province/State'];
+                    }
+                    record.Active = record.Confirmed - record.Deaths - record.Recovered;
                 }
                 database.processRecord(date, record);
             }
