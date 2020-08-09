@@ -19,8 +19,37 @@ const localeCorrection = { // apologies to any countries that aren't named how y
     'Congo': 'Republic of Congo',
     'West Bank and Gaza': 'Palestine',
     'Taiwan*': 'Taiwan', // Why a star, WHO? ;)
-    'Mainland China': 'China'
+    'Mainland China': 'China',
+    'Faeroe Islands': 'Faroe Islands',
+    'Réunion': 'Reunion',
+    'Curaçao': 'Curacao',
+    'Macao': 'Macau',
+    'CAR': 'Central African Republic'
 };
+
+const colonies = { // generated this with some macro, not an exact science
+    "French Guiana": "France",
+    "Mayotte": "France",
+    "Reunion": "France",
+    "Channel Islands": "United Kingdom",
+    "Aruba": "Netherlands",
+    "Isle of Man": "United Kingdom",
+    "Martinique": "France",
+    "Faroe Islands":"Denmark",
+    "Guadeloupe":"France", 
+    "Cayman Islands":"United Kingdom",
+    "Gibraltar":"United Kingdom",
+    "Sint Maarten":"Netherlands",
+    "Bermuda":"United Kingdom",
+    "French Polynesia":"France",
+    "Curacao":"Netherlands",
+    "New Caledonia":"France",
+    "Greenland":"Denmark",
+    "Montserrat":"United Kingdom",
+    "British Virgin Islands":"United Kingdom",
+    "Anguilla":"United Kingdom",
+    "Hong Kong": "China",
+    "Macau": "China"}
 
 // Functions
 
@@ -37,6 +66,7 @@ function validateDate(date) {
 
 
 function fmtDate(date = new Date()) {
+    if(typeof(date) === 'string') return date; // if a string was passed (for live)
     return (date.getMonth() + 1).toString().padStart(2, '0') + '-' + date.getDate().toString().padStart(2, '0') + '-' + date.getFullYear();
 }
 
@@ -100,13 +130,13 @@ class Record {
                 Confirmed += this.children[i].data.TotalConfirmed || this.children[i].data.Confirmed;
                 Deaths += this.children[i].data.TotalDeaths || this.children[i].data.Deaths;
                 Active += this.children[i].data.TotalActive || this.children[i].data.Active;
-                Recovered += this.children[i].data.TotalRecovered || this.children[i].data.Recovered;
+                Recovered += this.children[i].data.TotalRecovered || this.children[i].data.Recovered || 0;
             }
             if(this.data.Confirmed !== undefined) { // Hopkins don't have the best data
                 Confirmed += this.data.Confirmed;
                 Deaths += this.data.Deaths;
                 Active += this.data.Active;
-                Recovered += this.data.Recovered;
+                Recovered += this.data.Recovered || 0;
             }
             this.data.TotalConfirmed = Confirmed;
             this.data.TotalDeaths = Deaths;
@@ -235,6 +265,10 @@ function processFile(date) {
                     }
                     record.Active = record.Confirmed - record.Deaths - record.Recovered;
                 }
+                if(record.State && colonies[record.State] == record.Country) { // this is a colony/overseas territory, bring it up to 'country' status as with worldometers
+                    record.Country = record.State;
+                    delete record.State;
+                }
                 database.processRecord(date, record);
             }
             database.Data[date].recalculateTotals();
@@ -243,7 +277,7 @@ function processFile(date) {
     });
 }
   
-async function refreshDB(manual = false) {
+async function refreshDB(manual = true) {
     // Read the content from the GitHub
     let dirList;
     try {
@@ -279,7 +313,7 @@ async function refreshDB(manual = false) {
         }
     });
     updatedRecord.TotalActive = updatedRecord.TotalConfirmed - updatedRecord.TotalDeaths - updatedRecord.TotalRecovered;
-    Object.assign(database.Data[fmtDate(database.lastDate)].data, updatedRecord);
+    if(!database.Data['live']) database.Data['live'] = new Record(updatedRecord);
     const theTable = WMHTML('table#main_table_countries_today').children('tbody').children('tr:not(.row_continent)');
     theTable.each((i, el) => {
         // get our stuff
@@ -288,8 +322,9 @@ async function refreshDB(manual = false) {
             if(tdi > 1 && country == null) return;
             switch(tdi) {
                 case 1:
-                    if(database.Data[fmtDate(database.lastDate)].children[localeFix(cheerio(tdel).find('a').text().trim())] !== undefined) {
-                        country = database.Data[fmtDate(database.lastDate)].children[localeFix(cheerio(tdel).find('a').text().trim())];
+                    let cName = localeFix(cheerio(tdel).find('a').text().trim());
+                    if(database.Data[fmtDate(database.lastDate)].children[cName] !== undefined) { // make sure country exists in JH DB for consistency
+                        country = database.Data['live'].child(cName);
                     }
                     break;
                 case 2:
@@ -311,7 +346,7 @@ async function refreshDB(manual = false) {
 }
 
 refreshDB(true);
-setInterval(() => refreshDB(), 1000 * 60 * 15); // refresh DB every 15 mins for that real time juice
+setInterval(refreshDB, 1000 * 60 * 15); // refresh DB every 15 mins for that real time juice
 
 // API
 
@@ -319,6 +354,14 @@ const errorSnippet = (s, children) => {
     if(s == null) return {error: 'NOT_FOUND'};
     else return s.format(children);
 }
+
+app.get('/live', (req, res) => {
+    res.json(database.lookupTotal('live').format(0));
+});
+
+app.get('/live/countries', (req, res) => {
+    res.json(database.lookupTotal('live').format(1));
+});
 
 app.get('/summary', (req, res) => {
     res.json(database.lookupTotal().format(0));
