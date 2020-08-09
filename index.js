@@ -217,7 +217,7 @@ function processFile(date) {
                         Case_Fatality: output[i]['Case-Fatality_Ratio']
                     };
                     if(output[i].Province_State != '') { 
-                        if(output[i].Province_State == 'Hong Kong' || output[i].Province_State == 'Macau') output[i].Country = output[i].Province_State; 
+                        if(output[i].Province_State == 'Hong Kong' || output[i].Province_State == 'Macau') record.Country = output[i].Province_State; 
                         else record.State = output[i].Province_State;
                     }
                     if(output[i].Admin2 != '') record.Admin = output[i].Admin2;
