@@ -343,7 +343,7 @@ async function refreshDB(manual = false) {
 }
 
 refreshDB(true);
-setInterval(refreshDB, 1000 * 60 * 1); // refresh DB every 15 mins for that real time juice
+setInterval(refreshDB, 1000 * 60 * 15); // refresh DB every 15 mins for that real time juice
 
 // API
 
