@@ -24,10 +24,11 @@ const localeCorrection = { // apologies to any countries that aren't named how y
     'Réunion': 'Reunion',
     'Curaçao': 'Curacao',
     'Macao': 'Macau',
-    'CAR': 'Central African Republic'
+    'CAR': 'Central African Republic',
+    'Falkland Islands (Malvinas)': 'Falkland Islands'
 };
 
-const colonies = { // generated this with some macro, not an exact science
+const overseas_territories = { // generated this with some macro, not an exact science, currenly not in use but may use later
     "French Guiana": "France",
     "Mayotte": "France",
     "Reunion": "France",
@@ -246,10 +247,6 @@ function processFile(date) {
                         Incidence_Rate: output[i].Incidence_Rate,
                         Case_Fatality: output[i]['Case-Fatality_Ratio']
                     };
-                    if(output[i].Province_State != '') { 
-                        if(output[i].Province_State == 'Hong Kong' || output[i].Province_State == 'Macau') record.Country = output[i].Province_State; 
-                        else record.State = output[i].Province_State;
-                    }
                     if(output[i].Admin2 != '') record.Admin = output[i].Admin2;
                 } else {
                     // old format
@@ -265,9 +262,9 @@ function processFile(date) {
                     }
                     record.Active = record.Confirmed - record.Deaths - record.Recovered;
                 }
-                if(record.State && colonies[record.State] == record.Country) { // this is a colony/overseas territory, bring it up to 'country' status as with worldometers
-                    record.Country = record.State;
-                    delete record.State;
+                if(output[i].Province_State != '') { 
+                    if(output[i].Province_State == 'Hong Kong' || output[i].Province_State == 'Macau') record.Country = output[i].Province_State; 
+                    else record.State = output[i].Province_State;
                 }
                 database.processRecord(date, record);
             }
@@ -277,7 +274,7 @@ function processFile(date) {
     });
 }
   
-async function refreshDB(manual = true) {
+async function refreshDB(manual = false) {
     // Read the content from the GitHub
     let dirList;
     try {
@@ -346,7 +343,7 @@ async function refreshDB(manual = true) {
 }
 
 refreshDB(true);
-setInterval(refreshDB, 1000 * 60 * 15); // refresh DB every 15 mins for that real time juice
+setInterval(refreshDB, 1000 * 60 * 1); // refresh DB every 15 mins for that real time juice
 
 // API
 
