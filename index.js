@@ -286,6 +286,7 @@ async function refreshDB(manual = false) {
     let res = await execSync('cd COVID-19 && git pull');
     if(manual || res.indexOf('Already up to date.') === -1)  {
         console.log('Loading new data...');
+	dirList = fs.readdirSync('./COVID-19/csse_covid_19_data/csse_covid_19_daily_reports/').reverse();
         for(let i of dirList) {
             if(i.match(/^[0-9]{2}-[0-9]{2}-[0-9]{4}\.csv$/)) {
                 const spl = i.split('.');
